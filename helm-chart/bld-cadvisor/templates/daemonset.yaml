@@ -1,0 +1,78 @@
+---
+apiVersion: apps/v1 # for Kubernetes versions before 1.9.0 use apps/v1beta2
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: cadvisor
+  name: cadvisor
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: exporter
+      app.kubernetes.io/name: cadvisor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: exporter
+        app.kubernetes.io/name: cadvisor
+    spec:
+      serviceAccountName: cadvisor
+      containers:
+        - name: cadvisor
+          image: "{{ index .Values "ShepherdImagesV1" "cegbu-platform-cadvisor-image" "Repository" }}:{{ index .Values "ShepherdImagesV1" "cegbu-platform-cadvisor-image" "Tag" }}"
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          args: ["-docker_only=true","--enable_metrics=cpu,memory,network,disk,diskIO","--store_container_labels=false","--whitelisted_container_labels=io.kubernetes.container.name,io.kubernetes.pod.name,io.kubernetes.pod.namespace,id"]
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 400m
+            limits:
+              memory: 1Gi
+              cpu: 800m
+          volumeMounts:
+            - name: rootfs
+              mountPath: /rootfs
+              readOnly: true
+            - name: var-run
+              mountPath: /var/run
+              readOnly: true
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+            - name: docker
+              mountPath: /var/lib/docker
+              readOnly: true
+            - name: disk
+              mountPath: /dev/disk
+              readOnly: true
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: rootfs
+          hostPath:
+            path: /
+        - name: var-run
+          hostPath:
+            path: /var/run
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: docker
+          hostPath:
+            path: /var/lib/docker
+        - name: disk
+          hostPath:
+            path: /dev/disk
+      tolerations:
+        # Control pod scheduling based on the "platform-restricted" taint.
+        - key: "platform-restricted"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"

@@ -1,0 +1,12 @@
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: config-reader
+  namespace: {{.Release.Namespace}}
+rules:
+  - apiGroups: [""] # "" indicates the core API group
+    resources: ["secrets","pod","events","deployment"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""] # "" indicates the core API group
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]

@@ -1,0 +1,9 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cadvisor-role
+  namespace: monitoring
+rules:
+  - apiGroups: [""]
+    resources: ["daemonsets.apps" , "endpoints"]
+    verbs: ["get", "list", "watch"]

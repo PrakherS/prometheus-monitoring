@@ -1,0 +1,127 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-t2-adapter-config
+  namespace: monitoring
+
+data:
+  config: |-
+    prometheus:
+      url: "{{ required "You must provide a value for 'prometheus.url' value." .Values.prometheus.url }}"
+
+    t2:
+      url: "{{ required "You must provide a value for 't2.url' value." .Values.t2.url }}"
+      compartmentId: {{ required "You must provide a value for t2.compartmentId" .Values.t2.compartmentId }}
+      authType: "{{ required "You must provide a value for t2.authType" .Values.t2.authType }}"
+      project: "{{ required "You must provide a value for t2.project" .Values.t2.project }}"
+      retryAttempts: {{ required "You must provide a value for t2.retryAttempts" .Values.t2.retryAttempts }}
+      backoffSleepDuration: {{ required "You must provide a value for t2.backoffSleepDuration" .Values.t2.backoffSleepDuration }}
+      pushInterval: {{ required "You must provide a value for t2.pushInterval" .Values.t2.pushInterval }}
+      pushTimeout: {{ required "You must provide a value for t2.pushTimeout" .Values.t2.pushTimeout }}
+
+    logging:
+      {{- if .Values.logging.logFilePath -}}
+      {{- printf "\n      logFilePath: %s" .Values.logging.logFilePath -}}
+      {{- end }}
+      logLevel: {{ required "You must provide a value for logging.logLevel" .Values.logging.logLevel }}
+      logFormat: {{ required "You must provide a value for logging.logFormat" .Values.logging.logFormat }}
+      maxSize: {{ required "You must provide a value for logging.maxSize" .Values.logging.maxSize }}
+      maxBackups: {{ required "You must provide a value for logging.maxBackups" .Values.logging.maxBackups }}
+      maxAge: {{ required "You must provide a value for logging.maxAge" .Values.logging.maxAge }}
+
+    {{- if .Values.dev }}
+    {{- printf "\n" }}
+    dev:
+    {{- range $key, $value := .Values.dev }}
+      {{ $key -}}
+      : {{ $value }}
+    {{- end }}
+    {{- end }}
+    
+    regionMappings:
+    {{- range $i, $regionMapping := .Values.regionMappings }}
+      {{ $i -}}
+      : {{ $regionMapping }}
+    {{- end }}
+
+    availabilityDomainMappings:
+    {{- range $i, $adMapping := .Values.availabilityDomainMappings }}
+      {{ $i -}}
+      : {{ $adMapping }}
+    {{- end }}
+
+    defaults:
+      metricScrapeInterval: {{ required "Must supply 'defaults.metricScrapeInterval' value." .Values.defaults.metricScrapeInterval }}
+      availabilityDomain: {{ required "You must provide a value for 'defaults.availabilityDomain'" .Values.defaults.availabilityDomain }}
+      fleet: {{ required "You must provide a value for 'defaults.fleet'" .Values.defaults.fleet }}
+      hostname: {{ required "You must provide a value for 'defaults.hostname'" .Values.defaults.hostname }}
+
+    metrics:
+    {{- range $i, $metric := .Values.metrics }}
+      - query: {{ required "Must supply at least one 'metrics.query' value." $metric.query }}
+        {{- if hasKey $metric "legendFormat" }}
+        legendFormat: "{{ $.Values.cluster_type }}.{{ $metric.legendFormat }}"
+        {{- end }}
+        {{- if hasKey $metric "type" }}
+        type: {{ $metric.type }}
+        {{- end }}
+        {{- if hasKey $metric "scrapeInterval" }}
+        scrapeInterval: {{ $metric.scrapeInterval }}
+        {{- end }}
+        {{- if hasKey $metric "includeCustomTags1" }}
+        includeCustomTags: {{ $metric.includeCustomTags }}
+        {{- end }}
+        {{- if $metric.customTags }}
+        customTags:
+          {{- range $key, $value := $metric.customTags }}
+          {{ $key }}: {{ $value | quote}}
+          {{- end }}
+        {{- end }}
+        {{- if $metric.tags }}
+        tags:
+            {{- if hasKey $metric.tags "availabilityDomain" }}
+            availabilityDomain: {{ $metric.tags.availabilityDomain }}
+            {{- end }}
+            {{- if hasKey $metric.tags "fleet" }}
+            fleet: {{ $metric.tags.fleet }}
+            {{- end }}
+            {{- if hasKey $metric.tags "hostname" }}
+            hostname: "{{ $metric.tags.hostname }}"
+            {{- end }}
+        {{- end }}
+    {{- end }}
+    {{- if $.Values.enableRedisMetrics }}
+    {{- range $i, $metric := .Values.redisMetrics }}
+      - query: {{ required "Must supply at least one 'metrics.query' value." $metric.query }}
+        {{- if hasKey $metric "legendFormat" }}
+        legendFormat: "{{ $.Values.cluster_type }}.{{ $metric.legendFormat }}"
+        {{- end }}
+        {{- if hasKey $metric "type" }}
+        type: {{ $metric.type }}
+        {{- end }}
+        {{- if hasKey $metric "scrapeInterval" }}
+        scrapeInterval: {{ $metric.scrapeInterval }}
+        {{- end }}
+        {{- if hasKey $metric "includeCustomTags1" }}
+        includeCustomTags: {{ $metric.includeCustomTags }}
+        {{- end }}
+        {{- if $metric.customTags }}
+        customTags:
+          {{- range $key, $value := $metric.customTags }}
+          {{ $key }}: {{ $value | quote}}
+          {{- end }}
+        {{- end }}
+        {{- if $metric.tags }}
+        tags:
+            {{- if hasKey $metric.tags "availabilityDomain" }}
+            availabilityDomain: {{ $metric.tags.availabilityDomain }}
+            {{- end }}
+            {{- if hasKey $metric.tags "fleet" }}
+            fleet: {{ $metric.tags.fleet }}
+            {{- end }}
+            {{- if hasKey $metric.tags "hostname" }}
+            hostname: "{{ $metric.tags.hostname }}"
+            {{- end }}
+        {{- end }}
+    {{- end }}
+    {{- end }}

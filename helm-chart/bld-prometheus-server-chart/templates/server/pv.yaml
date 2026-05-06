@@ -1,0 +1,29 @@
+{{- if .Values.server.enabled -}}
+{{- if not .Values.server.statefulSet.enabled -}}
+{{- if .Values.server.persistentVolume.enabled -}}
+{{- if not .Values.server.persistentVolume.existingClaim -}}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  {{- if .Values.server.persistentVolume.annotations }}
+  annotations:
+{{ toYaml .Values.server.persistentVolume.annotations | indent 4 }}
+  {{- end }}
+  labels:
+    {{- include "prometheus.server.labels" . | nindent 4 }}
+  name: {{ template "prometheus.server.fullname" . }}
+{{ include "prometheus.namespace" . | indent 2 }}
+spec:
+  capacity:
+    storage: {{ .Values.server.persistentVolume.capacity }}
+  volumeMode: Filesystem
+  accessModes:
+  {{ toYaml .Values.server.persistentVolume.accessModes | indent 4 }}
+  persistentVolumeReclaimPolicy: Retain
+  csi:
+    driver: fss.csi.oraclecloud.com
+    volumeHandle: {{ .Values.server.persistentVolume.fileSystemOCID }}:{{ .Values.server.persistentVolume.mountTargetIP }}:{{ .Values.server.persistentVolume.exportPath }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}

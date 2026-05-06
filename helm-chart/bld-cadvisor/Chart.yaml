@@ -1,0 +1,7 @@
+# Pulling cadvisor chart from existing OCI service
+apiVersion: v2
+appVersion: 1.0.0
+description: Helm chart for collecting Kubernetes metrics
+name: build-service-cadvisor
+type: application
+version: 1.0.0

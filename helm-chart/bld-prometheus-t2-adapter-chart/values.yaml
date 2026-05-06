@@ -1,0 +1,252 @@
+nameOverride: "build-service-prometheus-t2-adapter"
+fullnameOverride: "build-service-prometheus-t2-adapter"
+
+setImagePullSecrets: true
+enableRedisMetrics: false
+# Docker settings
+imagePullPolicy: Always
+cluster_type: build_service_dp_alpha_cluster
+
+# node:
+#   node-pool-type: dp-cache
+
+resources: 
+  limits:
+   cpu: 500m
+   memory: 500Mi
+  requests:
+   cpu: 100m
+   memory: 100Mi
+
+ShepherdImagesV1:
+  build-service-prometheus-t2-adapter:
+    Repository: phx.ocir.io/axoxdievda5j/build-service-prometheus-t2-adapter
+    Tag: 1.1.1
+
+# Prometheus settings
+prometheus:
+    url: http://build-service-prometheus-server.monitoring.svc.cluster.local:8080
+    # username: " "
+    # password: " "
+
+defaults:
+    metricScrapeInterval: 30
+    availabilityDomain: us-phoenix-ad-1
+    fleet: build-service-dp-alpha
+    hostname: build-service-host-unknown
+
+# T2 settings
+t2:
+    url: https://telemetry-ingestion.us-phoenix-1.oraclecloud.com/20180401/metrics
+    compartmentId: ocid1.compartment.oc1..aaaaaaaagixeyxsjv643gwx5vf6dkuwmvvf4dlf7k6sobwzbjrtce4lvndwq # T2 compartmentId for OC1, referred from https://confluence.oci.oraclecorp.com/pages/viewpage.action?spaceKey=Telemetry&title=Metrics-Module+Upgrade#MetricsModuleUpgrade-WhatdoIneedtodo?
+    # Supported auth types: [instance_principal, unauthenticated]
+    authType: instance_principal
+    project: build-service-dp
+    # This is the # of retries to attempt when T2 push metric requests fail
+    # Specify 0 for no retries
+    retryAttempts: 3
+    # This is the sleep duration in milliseconds to wait in-between failed T2 retries
+    # This value will be used as a base to calculate a backoff value to use during retries
+    backoffSleepDuration: 500ms
+    # This is how often to push a batch of metrics to T2 specified in seconds
+    pushInterval: 30s
+    # Timeout specified in seconds for T2 push requests. Specify 0s for no timeout
+    pushTimeout: 10s
+
+# Logging settings
+logging:
+    # logFilePath is optional. If not specified, logs are sent to stdout
+    logFilePath: /tmp/prometheus-t2-adapter.log
+    # Supported values: [debug, info, warn, error, fatal, panic]
+    logLevel: info
+    # Supported values: [text, json]
+    logFormat: json
+    # Max size in MB of the log file before it gets rotated
+    maxSize: 10
+    # Max number of old log files to retain
+    maxBackups: 3
+    # Max number of days to retain old log files
+    maxAge: 30
+
+pod:
+  securityContext:
+    runAsUser: 1003
+    runAsNonRoot: true
+    runAsGroup: 1003
+    fsGroup: 1003
+  volumes:
+    - name: logs
+      path: /var/log/bld/
+      mountPath: /logs
+      type: DirectoryOrCreate
+
+container:
+  securityContext:
+    allowPrivilegeEscalation: false
+  paApp:
+    volumes:
+    - name: logs
+      path: /var/log/bld/
+      mountPath: /logs
+      type: DirectoryOrCreate
+
+# Map OCI Instance Metadata region names (lower cased) to T2 expected region names
+regionMappings:
+    sea: r1
+    phx: r2
+    iad: us-ashburn-1
+    eu-frankfurt-1: eu-frankfurt-1
+    uk-london-1: uk-london-1
+    us-seattle-1: r1
+    us-phoenix-1: r2
+
+# Map OCI Instance Metadata AD names (lower cased) to T2 expected region names
+availabilityDomainMappings:
+    sea-ad-1: sea-ad-1
+    sea-ad-2: sea-ad-2
+    sea-ad-3: sea-ad-3
+    phx-ad-1: phx-ad-1
+    phx-ad-2: phx-ad-2
+    phx-ad-3: phx-ad-3
+    us-ashburn-ad-1: iad-ad-1
+    us-ashburn-ad-2: iad-ad-2
+    us-ashburn-ad-3: iad-ad-3
+    us-ashburn-pop-1: iad-pop-1
+    us-ashburn-pop-2: iad-pop-2
+    eu-frankfurt-1-ad-1: eu-frankfurt-1-ad-1
+    eu-frankfurt-1-ad-2: eu-frankfurt-1-ad-2
+    eu-frankfurt-1-ad-3: eu-frankfurt-1-ad-3
+    eu-frankfurt-1-pop-1: eu-frankfurt-1-pop-1
+    uk-london-1-ad-1: uk-london-1-ad-1
+    uk-london-1-ad-2: uk-london-1-ad-2
+    uk-london-1-ad-3: uk-london-1-ad-3
+    uk-london-1-pop-1: uk-london-1-pop-1
+    uk-london-1-pop-2: uk-london-1-pop-2
+
+metrics:
+# Cluster
+- query: 'count(kube_node_status_condition{condition="MemoryPressure",status="true"} == 1) by (exported_namespace)'
+  legendFormat: "build_service_dp_alpha_cluster.MemoryPressure"
+- query: 'count(kube_node_status_condition{condition="PIDPressure",status="true"} == 1) by (exported_namespace)'
+  legendFormat: "build_service_dp_alpha_cluster.PIDPressure"
+- query: 'count(kube_node_status_condition{condition="DiskPressure",status="true"} == 1) by (exported_namespace)'
+  legendFormat: "build_service_dp_alpha_cluster.DiskPressure"
+- query: 'count(kube_node_status_condition{condition="NetworkUnavailable",status="true"} == 1) by (exported_namespace)'
+  legendFormat: "build_service_dp_alpha_cluster.NetworkUnavailable"
+- query: 'count(kube_node_status_condition{condition="MemoryPressure",status="true"} == 1) by (exported_namespace)'
+  legendFormat: 'build_service_dp_alpha_cluster.NodesMemoryPressure'
+- query: 'count(kube_node_status_condition{condition="PIDPressure",status="true"} == 1) by (exported_namespace)'
+  legendFormat: 'build_service_dp_alpha_cluster.NodesPIDPressure'
+- query: 'count(kube_node_status_condition{condition="DiskPressure",status="true"} == 1) by (exported_namespace)'
+  legendFormat: 'build_service_dp_alpha_cluster.NodesDiskPressure'
+- query: 'count(kube_node_status_condition{condition="NetworkUnavailable",status="true"} == 1) by (exported_namespace)'
+  legendFormat: 'build_service_dp_alpha_cluster.NodeNetworkUnavailable'
+- query: 'count(kube_node_created)'
+  legendFormat: 'kube_cluster_nodes_created_count'	
+- query: 'count(kube_node_status_condition{condition="Ready",status="true"} == 1) by (service)'
+  legendFormat: 'kube_cluster_nodes_ready_count'	
+- query: 'count(kube_pod_info) by (exported_namespace)'
+  legendFormat: 'kube_cluster_pods_count'
+- query: ' sum by (exported_namespace) (kube_pod_info)'
+  legendFormat: 'Count of pods per cluster and namespace'
+- query: 'sum by (exported_namespace)(changes(kube_pod_status_ready{condition="true"}[5m]))'
+  legendFormat: 'Pod restarts by namespace'
+- query: 'sum by (exported_namespace) (kube_pod_status_ready{condition="false"})'
+  legendFormat: 'Pods not ready'
+- query: 'avg(container_cpu_usage_seconds_total) by (exported_namespace)'
+  legendFormat: 'CPU utilization by pod'
+- query: 'avg(container_memory_max_usage_bytes{container!="POD"}) by (exported_namespace)'
+  legendFormat: 'Memory utlization by pod'
+- query: '((node_filesystem_avail_bytes{mountpoint="/",fstype!="rootfs"} * 100) /    node_filesystem_size_bytes{mountpoint="/",fstype!="rootfs"})'
+  legendFormat: 'node filesystem'
+  includeCustomTags: "namespace"
+  customTags:
+    namespace: "{{exported_namespace}}"
+- query: 'count(kube_pod_container_info) by (exported_namespace)'
+  legendFormat: 'kube_cluster_containers_count'	
+  includeCustomTags: "namespace"
+  customTags:
+    namespace: "{{exported_namespace}}"
+    
+ ######################
+  # API Server Metrics #
+  ######################
+
+# API Server Availability
+- query: apiserver_request:availability30d{verb="all", cluster=""}
+  legendFormat: "api_server.availability30d"
+- query: apiserver_request:availability30d{verb="read", cluster=""}
+  legendFormat: "api_server.read.availability30d"
+- query: apiserver_request:availability30d{verb="write", cluster=""}
+  legendFormat: "api_server.write.availability30d"
+
+# API server read latency
+- query: cluster_quantile:apiserver_request_duration_seconds:histogram_quantile{quantile="0.99", verb="read"}
+  legendFormat: "api_server.request_duration_seconds.read.histogram_quantile"
+# API Server read throughput
+- query: sum by (code) (code_resource:apiserver_request_total:rate5m{verb="read", cluster=""})
+  legendFormat: "api_server.read.request_total"
+# API server write latency
+- query: cluster_quantile:apiserver_request_duration_seconds:histogram_quantile{quantile="0.99", verb="write"}
+  legendFormat: "api_server.request_duration_seconds.write.histogram_quantile"
+# API Server write throughput
+- query: sum by (code) (code_resource:apiserver_request_total:rate5m{verb="write", cluster=""})
+  legendFormat: "api_server.write.request_total"
+# API server cpu, memory and go routine metrics
+- query: process_resident_memory_bytes{job="apiserver",cluster=""}
+  legendFormat: api_server.resource.memory
+- query: rate(process_cpu_seconds_total{job="apiserver",cluster=""}[5m])
+  legendFormat: api_server.resource.cpu
+- query: go_goroutines{job="apiserver",cluster=""}
+  legendFormat: api_server.resource.goroutines
+  
+  #########################
+  # Cluster Level Metrics #
+  #########################
+
+- query: 'kube_node_status_condition{condition="Ready",status="true"}'
+  legendFormat: "kube_node_alive_status"
+  customTags:
+   node_ip: "{{node}}"
+
+- query: 'count(kube_node_status_condition{condition="Ready",status="true"})'
+  legendFormat: "kube_cluster_nodes_count"
+
+- query: 'count(kube_node_status_condition{condition="Ready",status="true"} == 1)'
+  legendFormat: "kube_cluster_nodes_ready_count"
+
+- query: 'count(kube_pod_info)'
+  legendFormat: "kube_cluster_pods_count"
+
+- query: 'count(kube_pod_container_info)'
+  legendFormat: "kube_cluster_containers_count"
+
+- query: '((count(kube_pod_info))-(sum(kube_pod_status_phase{phase="Succeeded"})))'
+  legendFormat: "kube_cluster_desired_pods_count"
+
+# CPU, Memory and other resources.
+- query: 'sum(kube_pod_container_resource_requests) by (resource)'
+  legendFormat: "kube_cluster_resource_requests"
+  customTags:
+  resource: "{{resource}}"
+
+- query: 'sum(kube_pod_container_resource_limits) by (resource)'
+  legendFormat: "kube_cluster_resource_limits"
+  customTags:
+   resource: "{{resource}}"
+
+- query: 'sum(kube_node_status_capacity) by (resource)'
+  legendFormat: "kube_cluster_resource_capacity"
+  customTags:
+    resource: "{{resource}}"
+
+- query: '(sum(kube_pod_container_resource_requests) by (resource) / sum(kube_node_status_capacity) by (resource)) * 100'
+  legendFormat: "kube_cluster_resource_requests_percent"
+  customTags:
+     resource: "{{resource}}"
+
+- query: '(sum(kube_pod_container_resource_limits) by (resource) / sum(kube_node_status_capacity) by (resource)) * 100'
+  legendFormat: "kube_cluster_resource_limits_percent"
+  customTags:
+    resource: "{{resource}}"
+

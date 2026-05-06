@@ -1,0 +1,7 @@
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+# Pulling cadvisor image from existing OCI service
+ShepherdImagesV1:
+  cegbu-platform-cadvisor-image:
+    Repository: phx.ocir.io/axoxdievda5j/cegbu-platform-cadvisor-image
+    Tag: master.44

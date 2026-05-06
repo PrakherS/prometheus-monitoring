@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: build-service-prometheus-t2-adapter-deployment
+  namespace: monitoring
+  labels:
+    app: prometheus-t2-adapter
+spec:
+  selector:
+    matchLabels:
+      app: prometheus-t2-adapter
+  template:
+    metadata:
+      labels:
+        app: prometheus-t2-adapter
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/adapter-config.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/adapter-secrets.yaml") . | sha256sum }}
+    spec:
+      {{- if $.Values.pod.securityContext }}
+      securityContext:
+        ## Custom pod security context
+        {{- range $key, $value := $.Values.pod.securityContext }}
+        {{ $key }}: {{ $value }}
+        {{- end }}
+      {{- end }}
+      serviceAccountName: prometheus-t2-adapter-service-account
+      {{- if $.Values.setImagePullSecrets }}
+      imagePullSecrets: 
+      - name: ocirsecret
+      {{- end }}
+      containers:
+      - name: prometheus-t2-adapter
+        image: {{ index $.Values.ShepherdImagesV1 "build-service-prometheus-t2-adapter" "Repository" }}:{{ index $.Values.ShepherdImagesV1 "build-service-prometheus-t2-adapter" "Tag" }}
+        imagePullPolicy: {{ required "Must supply 'imagePullPolicy' value." .Values.imagePullPolicy }}
+        {{- if $.Values.container.securityContext }}
+        securityContext:
+          {{- range $key, $value := $.Values.container.securityContext }}
+          {{ $key }}: {{ $value }}
+          {{- end }}
+        {{- end }}
+        command: [ "/bin/prometheus-adapter"]
+        args: ["-conf", "/etc/config/adapter-config.yaml", "-secrets", "/etc/secrets/adapter-secrets.yaml"]
+        env:
+          - name: log_field_dockerImage
+            value: {{ index $.Values.ShepherdImagesV1 "build-service-prometheus-t2-adapter" "Repository" }}:{{ index $.Values.ShepherdImagesV1 "build-service-prometheus-t2-adapter" "Tag" }}
+          - name: log_field_node_name
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: log_field_pod_namespace
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: log_field_pod_name
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: log_field_pod_ip
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+        volumeMounts:
+        {{- range $volume := $.Values.pod.volumes }}
+        - name: {{ $volume.name }}
+          mountPath: {{ $volume.mountPath }}
+        {{- end }}
+        - name: prometheus-t2-adapter-config
+          mountPath: /etc/config
+          readOnly: true
+        - name: prometheus-t2-adapter-secret
+          mountPath: /etc/secrets
+          readOnly: true
+        - name: system-ca-trust
+          mountPath: /etc/pki/ca-trust
+          readOnly: true
+        {{- if .Values.resources }}
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+{{- end }}
+      volumes:
+      {{- range $volume := $.Values.pod.volumes }}
+      - name: {{ $volume.name }}
+        hostPath:
+          path: {{ $volume.path }}
+          type: {{ $volume.type }}
+      {{- end }}
+      - name: prometheus-t2-adapter-config
+        configMap:
+          name: prometheus-t2-adapter-config
+          items:
+          - key: config
+            path: adapter-config.yaml
+      - name: prometheus-t2-adapter-secret
+        secret:
+          secretName: prometheus-t2-adapter-secret
+          defaultMode: 256
+          items:
+          - key: .adaptersecretjson
+            path: adapter-secrets.yaml
+      - name: system-ca-trust
+        hostPath:
+          path: /etc/pki/ca-trust
+          type: Directory
+      {{- if .Values.node }}
+      nodeSelector:
+        node-pool-type: {{ index $.Values.node "node-pool-type" | quote }}
+      {{- end }}
